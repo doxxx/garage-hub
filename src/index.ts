@@ -1,5 +1,4 @@
 import RFM69 = require("rfm69radio");
-import * as rfm69types from "rfm69radio-types";
 import * as express from "express";
 
 const state = {
@@ -11,7 +10,7 @@ function rootHandler(req: express.Request, res: express.Response) {
     res.json(state);
 }
 
-function packetReceived(packet: rfm69types.Packet) {
+function packetReceived(packet: RFM69.Packet) {
     let buf = packet.payloadBuffer;
     if (buf.toString("UTF-8", 0, 3) == 'GHT') {
         buf = buf.slice(3);
