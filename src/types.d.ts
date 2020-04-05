@@ -2,7 +2,7 @@ declare module "rfm69radio" {
     module RFM69 {
         interface InitializeArgs {
             /** 'RF69_315MHZ' or 'RF69_433MHZ' or 'RF69_868MHZ' or 'RF69_915MHZ' depending on radio hardware */
-            freqBand: string,
+            freqBand: "RF69_315MHZ" | "RF69_433MHZ" | "RF69_868MHZ" | "RF69_915MHZ",
             /** Address for this node */
             address: number,
             /** Network ID */
@@ -22,7 +22,7 @@ declare module "rfm69radio" {
             /** Accept all packets */
             promiscuousMode: boolean,
             /** Key for AES encryption. Must be 16 chars long or no encryption set */
-            encryptionKey: number,
+            encryptionKey: string,
             /** Automatically reply with Ack */
             autoAcknowledge: boolean,
             /** Verbose logging to console */
