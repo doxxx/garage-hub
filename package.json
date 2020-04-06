@@ -1,8 +1,18 @@
 {
-  "name": "garage-hub",
+  "name": "homebridge-garagedoor",
   "version": "1.0.0",
-  "description": "Hub for garage control",
+  "description": "Homebridge plugin for garage door control via custom RFM69 protocol.",
+  "keywords": [
+    "homebridge-plugin"
+  ],
+  "engines": {
+    "node": ">=0.12.0",
+    "homebridge": ">=0.2.0"
+  },
   "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
   "author": "Gordon Tyler <gordon@doxxx.net>",
   "license": "MIT",
   "dependencies": {
