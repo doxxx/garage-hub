@@ -1,4 +1,4 @@
-import RFM69 = require("rfm69radio");
+import { Message, Radio, RFM69Radio, ProximityChanged } from "./radio";
 import { wait, asyncGetCallback, asyncSetCallback } from "./utils";
 
 let Service: any, Characteristic: any;
@@ -15,6 +15,8 @@ class GarageDoorAccessory {
     doorService: any;
 
     doorState: { open: boolean };
+
+    radio: Radio;
 
     constructor(log: any, config: any) {
         this.log = log;
@@ -34,7 +36,8 @@ class GarageDoorAccessory {
             open: true,
         };
 
-        this.initRadio();
+        this.radio = new RFM69Radio();
+        this.radio.init(log, this.handleRadioMessage.bind(this));
     }
 
     async getDoorState() {
@@ -84,47 +87,23 @@ class GarageDoorAccessory {
         return [this.doorService];
     }
 
-    async initRadio() {
-        this.log("initializing radio")
-
-        const radio = new RFM69();
-        const ok = await radio.initialize({
-            networkID: 1,
-            address: 1,
-            freqBand: "RF69_915MHZ",
-            verbose: false,
-        });
-
-        if (!ok) {
-            this.log("could not initialize radio");
-            return;
+    handleRadioMessage(msg: Message): void {
+        switch (msg.kind) {
+            case 'ProximityChanged':
+                this.onProximityChanged(msg.active);
+                break;
+        
+            default:
+                this.log(`unknown radio message: ${msg}`);
+                break;
         }
-
-        this.log("radio initialized");
-
-        const temp = await radio.readTemperature();
-        this.log(`radio temperature: ${temp}`);
-
-        await radio.calibrateRadio();
-
-        radio.registerPacketReceivedCallback(this.packetReceived.bind(this));
-
-        this.log("listening for packets");
     }
 
-    packetReceived(packet: RFM69.Packet) {
-        let buf = packet.payloadBuffer;
-        if (buf.toString("UTF-8", 0, 3) == 'GHT') {
-            buf = buf.slice(3);
-            if (buf.readUInt8() == 0x01) {
-                buf = buf.slice(1);
-                let active = buf.readUInt8() != 0;
-                this.log(`proximity change detected: ${active}`);
-                this.doorState.open = !active;
-                this.updateCurrentDoorState();
-                this.updateTargetDoorState();
-            }
-        }
+    onProximityChanged(active: boolean): void {
+        this.doorState.open = !active;
+        this.log(`Updating current/target door state: ${this.doorState}`);
+        this.updateCurrentDoorState();
+        this.updateTargetDoorState();
     }
 
     updateCurrentDoorState() {
