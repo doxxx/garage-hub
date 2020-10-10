@@ -25,7 +25,7 @@
   "devDependencies": {},
   "scripts": {
     "build": "tsc",
-    "start": "node .",
+    "start": "cd dist && node server.js",
     "watch": "tsc --watch"
   }
 }
