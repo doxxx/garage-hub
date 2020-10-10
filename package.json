@@ -26,6 +26,7 @@
   "scripts": {
     "build": "tsc",
     "start": "cd dist && node server.js",
+    "homebridge": "homebridge -D -P $(pwd)",
     "watch": "tsc --watch"
   }
 }
