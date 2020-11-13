@@ -12,15 +12,21 @@ export class RFM69Radio implements Radio {
         this.log("initializing radio")
 
         const radio = new RFM69();
-        const ok = await radio.initialize({
-            networkID: 1,
-            address: 1,
-            freqBand: "RF69_915MHZ",
-            verbose: false,
-        });
+        try {
+            const ok = await radio.initialize({
+                networkID: 1,
+                address: 1,
+                freqBand: "RF69_915MHZ",
+                verbose: false,
+            });
 
-        if (!ok) {
-            this.log("could not initialize radio");
+            if (!ok) {
+                this.log("could not initialize radio");
+                return;
+            }
+        }
+        catch (e) {
+            this.log(`error initializing radio: ${e}`);
             return;
         }
 
