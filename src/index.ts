@@ -1,60 +1,80 @@
+import { API, HAP, AccessoryPlugin, AccessoryConfig, Logging, Service } from "homebridge";
 import { Message, Radio, RFM69Radio, ProximityChanged } from "./radio";
 import { wait, asyncGetCallback, asyncSetCallback } from "./utils";
 
-let Service: any, Characteristic: any;
+let hap: HAP;
 
-module.exports = function (homebridge: any) {
-    Service = homebridge.hap.Service;
-    Characteristic = homebridge.hap.Characteristic;
-    homebridge.registerAccessory("homebridge-garagedoor", "GarageDoor", GarageDoorAccessory);
-};
+export = (api: API) => {
+    hap = api.hap;
+    api.registerAccessory("GarageDoor", GarageDoorAccessory);
+}
 
-class GarageDoorAccessory {
-    log: any;
-    config: any;
-    doorService: any;
+class GarageDoorAccessory implements AccessoryPlugin {
+    log: Logging;
+    config: AccessoryConfig;
+    doorService: Service;
+    informationService: Service;
 
     doorState: { open: boolean };
 
     radio: Radio;
 
-    constructor(log: any, config: any) {
+    constructor(log: Logging, config: AccessoryConfig, api: API) {
         this.log = log;
         this.config = config;
-
-        const doorService = new Service.GarageDoorOpener(config["name"]);
-        doorService.getCharacteristic(Characteristic.CurrentDoorState)
-            .on("get", asyncGetCallback(this.getDoorState.bind(this)));
-        doorService.getCharacteristic(Characteristic.TargetDoorState)
-            .on("get", asyncGetCallback(this.getTargetDoorState.bind(this)));
-        // .on("set", asyncSetCallback(this.setTargetDoorState.bind(this)));
-        // doorService.getCharacteristic(Characteristic.ObstructionDetected)
-        //     .on("get", asyncGetCallback(this.getObstructionDetected.bind(this)));
-        this.doorService = doorService;
 
         this.doorState = {
             open: true,
         };
 
-        this.radio = new RFM69Radio();
-        this.radio.init(log, this.handleRadioMessage.bind(this));
+        this.initRadio();
+
+        this.doorService = new hap.Service.GarageDoorOpener(config["name"]);
+        this.doorService.getCharacteristic(hap.Characteristic.CurrentDoorState)
+            .on("get", asyncGetCallback(this.getDoorState.bind(this)));
+            this.doorService.getCharacteristic(hap.Characteristic.TargetDoorState)
+            .on("get", asyncGetCallback(this.getTargetDoorState.bind(this)));
+        // .on("set", asyncSetCallback(this.setTargetDoorState.bind(this)));
+        // doorService.getCharacteristic(Characteristic.ObstructionDetected)
+        //     .on("get", asyncGetCallback(this.getObstructionDetected.bind(this)));
+
+        this.informationService = new hap.Service.AccessoryInformation();
+        this.informationService
+            .setCharacteristic(hap.Characteristic.Manufacturer, "Gordon Tyler")
+            .setCharacteristic(hap.Characteristic.Model, "GHT-GDD-001");
+
+        this.log("GarageDoor finished initializing");
+    }
+
+    getServices() {
+        return [
+            this.informationService,
+            this.doorService,
+        ];
     }
 
     async getDoorState() {
-        this.log("Retrieving current door state");
-        if (this.doorState.open) {
-            return Characteristic.CurrentDoorState.OPEN;
-        } else {
-            return Characteristic.CurrentDoorState.CLOSED;
+        try {
+            await this.radio.requestProximityCheck();
         }
-    }
+        catch (e) {
+            this.log(`ERROR: proximity check request failed: ${e}`)
+        }
+
+        await wait(100);
+
+        if (this.doorState.open) {
+            return hap.Characteristic.CurrentDoorState.OPEN;
+        } else {
+            return hap.Characteristic.CurrentDoorState.CLOSED;
+        }
+}
 
     async getTargetDoorState() {
-        this.log("Retrieving target door state");
         if (this.doorState.open) {
-            return Characteristic.TargetDoorState.OPEN;
+            return hap.Characteristic.TargetDoorState.OPEN;
         } else {
-            return Characteristic.TargetDoorState.CLOSED;
+            return hap.Characteristic.TargetDoorState.CLOSED;
         }
     }
 
@@ -83,11 +103,18 @@ class GarageDoorAccessory {
     //     return false;
     // }
 
-    getServices() {
-        return [this.doorService];
+    private async initRadio(): Promise<void> {
+        try {
+            this.radio = new RFM69Radio();
+            await this.radio.init(this.log, this.handleRadioMessage.bind(this));
+            await this.radio.requestProximityCheck();
+        }
+        catch (e) {
+            this.log(`ERROR: ${e}`);
+        }
     }
 
-    handleRadioMessage(msg: Message): void {
+    private handleRadioMessage(msg: Message): void {
         switch (msg.kind) {
             case 'ProximityChanged':
                 this.onProximityChanged(msg.active);
@@ -99,30 +126,21 @@ class GarageDoorAccessory {
         }
     }
 
-    onProximityChanged(active: boolean): void {
+    private onProximityChanged(active: boolean): void {
         this.doorState.open = !active;
-        this.log(`Updating current/target door state: ${this.doorState}`);
         this.updateCurrentDoorState();
         this.updateTargetDoorState();
     }
 
-    updateCurrentDoorState() {
-        if (this.doorState.open) {
-            this.log(`Setting current door state characteristic to ${Characteristic.CurrentDoorState.OPEN}`);
-            this.doorService.setCharacteristic(Characteristic.CurrentDoorState, Characteristic.CurrentDoorState.OPEN);
-        } else {
-            this.log(`Setting current door state characteristic to ${Characteristic.CurrentDoorState.CLOSED}`);
-            this.doorService.setCharacteristic(Characteristic.CurrentDoorState, Characteristic.CurrentDoorState.CLOSED);
-        }
+    private updateCurrentDoorState() {
+        const currentDoorState = this.doorState.open ? hap.Characteristic.CurrentDoorState.OPEN : hap.Characteristic.CurrentDoorState.CLOSED;
+        this.log(`Setting current door state to ${currentDoorState}`);
+        this.doorService.setCharacteristic(hap.Characteristic.CurrentDoorState, currentDoorState);
     }
 
-    updateTargetDoorState() {
-        if (this.doorState.open) {
-            this.log(`Setting target door state characteristic to ${Characteristic.TargetDoorState.OPEN}`);
-            this.doorService.setCharacteristic(Characteristic.TargetDoorState, Characteristic.TargetDoorState.OPEN);
-        } else {
-            this.log(`Setting target door state characteristic to ${Characteristic.TargetDoorState.CLOSED}`);
-            this.doorService.setCharacteristic(Characteristic.TargetDoorState, Characteristic.TargetDoorState.CLOSED);
-        }
+    private updateTargetDoorState() {
+        const targetDoorState = this.doorState.open ? hap.Characteristic.TargetDoorState.OPEN : hap.Characteristic.TargetDoorState.CLOSED;
+        this.log(`Setting target door state to ${targetDoorState}`);
+        this.doorService.setCharacteristic(hap.Characteristic.TargetDoorState, targetDoorState);
     }
 }
