@@ -1,27 +1,23 @@
 import RFM69 = require("rfm69radio");
-import * as express from "express";
 
 const state = {
     lastUpdate: new Date(),
     active: false,
 }
 
-function rootHandler(req: express.Request, res: express.Response) {
-    res.json(state);
-}
-
 function packetReceived(packet: RFM69.Packet) {
-    let buf = packet.payloadBuffer;
-    if (buf.toString("UTF-8", 0, 3) == 'GHT') {
-        buf = buf.slice(3);
-        if (buf.readUInt8() == 0x01) {
-            buf = buf.slice(1);
-            let active = buf.readUInt8() != 0;
-            console.log("proximity change detected:", { active });
-            state.lastUpdate = new Date();
-            state.active = active;
-        }
-    }
+    console.log("Received packet: ", packet.payload, packet.payloadBuffer)
+    // let buf = packet.payloadBuffer;
+    // if (buf.toString("UTF-8", 0, 3) == 'GHT') {
+    //     buf = buf.slice(3);
+    //     if (buf.readUInt8(0) == 0x01) {
+    //         buf = buf.slice(1);
+    //         let active = buf.readUInt8(0) != 0;
+    //         console.log("proximity change detected:", { active });
+    //         state.lastUpdate = new Date();
+    //         state.active = active;
+    //     }
+    // }
 }
 
 async function main() {
@@ -50,12 +46,6 @@ async function main() {
     radio.registerPacketReceivedCallback(packetReceived);
 
     console.log("listening for packets");
-
-    const app = express();
-    app.get("/", rootHandler);
-    app.listen(8111, () => {
-        console.log("web server started");
-    });
 }
 
 main();
