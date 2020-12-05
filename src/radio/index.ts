@@ -11,7 +11,8 @@ export type Logger = (s: string) => void;
 
 export interface Radio {
     init(logger: Logger, handler: MessageHandler): Promise<void>;
-    requestProximityCheck(): Promise<boolean> ;
+    requestProximityCheck(): Promise<boolean>;
+    shutdown(): void;
 }
 
 export { RFM69Radio } from "./rfm69";

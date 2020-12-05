@@ -12,12 +12,11 @@ export = (api: API) => {
 class GarageDoorAccessory implements AccessoryPlugin {
     log: Logging;
     config: AccessoryConfig;
-    doorService: Service;
-    informationService: Service;
-
     doorState: { open: boolean };
-
     radio: Radio;
+    healthCheck: NodeJS.Timeout;
+    informationService: Service;
+    doorService: Service;
 
     constructor(log: Logging, config: AccessoryConfig, api: API) {
         this.log = log;
@@ -27,21 +26,26 @@ class GarageDoorAccessory implements AccessoryPlugin {
             open: true,
         };
 
+        // initialize the radio
         this.initRadio();
 
-        this.doorService = new hap.Service.GarageDoorOpener(config["name"]);
-        this.doorService.getCharacteristic(hap.Characteristic.CurrentDoorState)
-            .on("get", asyncGetCallback(this.getDoorState.bind(this)));
-            this.doorService.getCharacteristic(hap.Characteristic.TargetDoorState)
-            .on("get", asyncGetCallback(this.getTargetDoorState.bind(this)));
-        // .on("set", asyncSetCallback(this.setTargetDoorState.bind(this)));
-        // doorService.getCharacteristic(Characteristic.ObstructionDetected)
-        //     .on("get", asyncGetCallback(this.getObstructionDetected.bind(this)));
+        // start radio health check timeout
+        this.healthCheck = setTimeout(this.restartRadio.bind(this), 15000);
 
+        // initialize the HomeKit services
         this.informationService = new hap.Service.AccessoryInformation();
         this.informationService
             .setCharacteristic(hap.Characteristic.Manufacturer, "Gordon Tyler")
             .setCharacteristic(hap.Characteristic.Model, "GHT-GDD-001");
+
+        this.doorService = new hap.Service.GarageDoorOpener(config["name"]);
+        this.doorService.getCharacteristic(hap.Characteristic.CurrentDoorState)
+            .on("get", asyncGetCallback(this.getDoorState.bind(this)));
+        this.doorService.getCharacteristic(hap.Characteristic.TargetDoorState)
+            .on("get", asyncGetCallback(this.getTargetDoorState.bind(this)));
+        // .on("set", asyncSetCallback(this.setTargetDoorState.bind(this)));
+        // doorService.getCharacteristic(Characteristic.ObstructionDetected)
+        //     .on("get", asyncGetCallback(this.getObstructionDetected.bind(this)));
 
         this.log("GarageDoor finished initializing");
     }
@@ -54,14 +58,14 @@ class GarageDoorAccessory implements AccessoryPlugin {
     }
 
     async getDoorState() {
-        try {
-            await this.radio.requestProximityCheck();
-        }
-        catch (e) {
-            this.log(`ERROR: proximity check request failed: ${e}`)
-        }
+        // try {
+        //     await this.radio.requestProximityCheck();
+        // }
+        // catch (e) {
+        //     this.log(`ERROR: proximity check request failed: ${e}`)
+        // }
 
-        await wait(100);
+        // await wait(100);
 
         if (this.doorState.open) {
             return hap.Characteristic.CurrentDoorState.OPEN;
@@ -107,7 +111,18 @@ class GarageDoorAccessory implements AccessoryPlugin {
         try {
             this.radio = new RFM69Radio();
             await this.radio.init(this.log, this.handleRadioMessage.bind(this));
-            await this.radio.requestProximityCheck();
+            // await this.radio.requestProximityCheck();
+        }
+        catch (e) {
+            this.log(`ERROR: ${e}`);
+        }
+    }
+
+    private async restartRadio(): Promise<void> {
+        this.log("radio health check timeout -- restarting radio")
+        try {
+            this.radio.shutdown();
+            await this.initRadio();
         }
         catch (e) {
             this.log(`ERROR: ${e}`);
@@ -115,6 +130,10 @@ class GarageDoorAccessory implements AccessoryPlugin {
     }
 
     private handleRadioMessage(msg: Message): void {
+        // reset radio health check timeout
+        clearTimeout(this.healthCheck);
+        this.healthCheck = setTimeout(this.restartRadio.bind(this), 15000);
+
         switch (msg.kind) {
             case 'ProximityChanged':
                 this.onProximityChanged(msg.active);
