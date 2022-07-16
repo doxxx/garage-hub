@@ -1,13 +1,15 @@
 {
+  "private": true,
   "name": "homebridge-garagedoor",
+  "displayName": "Gordon's GarageDoor",
   "version": "1.0.0",
   "description": "Homebridge plugin for garage door control via custom RFM69 protocol.",
   "keywords": [
     "homebridge-plugin"
   ],
   "engines": {
-    "node": ">=12.16.2",
-    "homebridge": ">=1.0.0"
+    "node": ">=16",
+    "homebridge": ">=1.5.0"
   },
   "main": "dist/index.js",
   "files": [
@@ -19,9 +21,15 @@
     "rfm69radio": "^4.0.0"
   },
   "devDependencies": {
-    "@types/node": "^12.16.2",
-    "homebridge": "^1.1.6",
-    "typescript": "^3.8.3"
+    "@types/node": "^16",
+    "homebridge": "^1",
+    "typescript": "^4"
+  },
+  "overrides": {
+    "rfm69radio": {
+      "onoff": "^6",
+      "spi-device": "^3.1.2"
+    }
   },
   "scripts": {
     "build": "tsc",

@@ -68,7 +68,7 @@ export class RFM69Radio implements Radio {
 
     private packetReceived(packet: RFM69.Packet): void {
         let buf = packet.payloadBuffer;
-        if (buf.toString("UTF-8", 0, 3) == 'GHT') {
+        if (buf.toString('utf8', 0, 3) == 'GHT') {
             buf = buf.slice(3);
             if (buf.readUInt8(0) == 0x01) {
                 buf = buf.slice(1);
