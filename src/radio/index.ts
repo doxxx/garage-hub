@@ -12,6 +12,7 @@ export type Logger = (s: string) => void;
 export interface Radio {
     init(logger: Logger, handler: MessageHandler): Promise<void>;
     requestProximityCheck(): Promise<boolean>;
+    restart(): Promise<void>;
     shutdown(): void;
 }
 

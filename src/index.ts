@@ -9,6 +9,8 @@ export = (api: API) => {
     api.registerAccessory("GarageDoor", GarageDoorAccessory);
 }
 
+const RadioHealthCheckTimeout = 25000;
+
 class GarageDoorAccessory implements AccessoryPlugin {
     log: Logging;
     config: AccessoryConfig;
@@ -26,12 +28,6 @@ class GarageDoorAccessory implements AccessoryPlugin {
             open: true,
         };
 
-        // initialize the radio
-        this.initRadio();
-
-        // start radio health check timeout
-        this.healthCheck = setTimeout(this.restartRadio.bind(this), 15000);
-
         // initialize the HomeKit services
         this.informationService = new hap.Service.AccessoryInformation();
         this.informationService
@@ -47,7 +43,12 @@ class GarageDoorAccessory implements AccessoryPlugin {
         // doorService.getCharacteristic(Characteristic.ObstructionDetected)
         //     .on("get", asyncGetCallback(this.getObstructionDetected.bind(this)));
 
-        this.log("GarageDoor finished initializing");
+        // initialize the radio
+        this.initRadio().then(() => {
+            // start radio health check timeout
+            this.healthCheck = setTimeout(this.restartRadio.bind(this), RadioHealthCheckTimeout);
+            this.log("GarageDoor finished initializing");
+        })
     }
 
     getServices() {
@@ -58,15 +59,6 @@ class GarageDoorAccessory implements AccessoryPlugin {
     }
 
     async getDoorState() {
-        // try {
-        //     await this.radio.requestProximityCheck();
-        // }
-        // catch (e) {
-        //     this.log(`ERROR: proximity check request failed: ${e}`)
-        // }
-
-        // await wait(100);
-
         if (this.doorState.open) {
             return hap.Characteristic.CurrentDoorState.OPEN;
         } else {
@@ -111,7 +103,6 @@ class GarageDoorAccessory implements AccessoryPlugin {
         try {
             this.radio = new RFM69Radio();
             await this.radio.init(this.log, this.handleRadioMessage.bind(this));
-            // await this.radio.requestProximityCheck();
         }
         catch (e) {
             this.log(`ERROR: ${e}`);
@@ -121,8 +112,7 @@ class GarageDoorAccessory implements AccessoryPlugin {
     private async restartRadio(): Promise<void> {
         this.log("radio health check timeout -- restarting radio")
         try {
-            this.radio.shutdown();
-            await this.initRadio();
+            this.radio.restart();
         }
         catch (e) {
             this.log(`ERROR: ${e}`);
@@ -132,7 +122,7 @@ class GarageDoorAccessory implements AccessoryPlugin {
     private handleRadioMessage(msg: Message): void {
         // reset radio health check timeout
         clearTimeout(this.healthCheck);
-        this.healthCheck = setTimeout(this.restartRadio.bind(this), 15000);
+        this.healthCheck = setTimeout(this.restartRadio.bind(this), RadioHealthCheckTimeout);
 
         switch (msg.kind) {
             case 'ProximityChanged':
